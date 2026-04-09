@@ -1,0 +1,219 @@
+#!/bin/sh
+
+#修改root密码
+passwd root << EOI
+switch-net.com
+switch-net.com
+EOI
+
+#修改默认主题为argon
+uci -q batch << EOI
+set luci.themes.Argon=/luci-static/argon
+set luci.main.mediaurlbase=/luci-static/argon
+commit luci
+EOI
+
+#修改名称,时区, 添加一个ntp服务地址,启用console登录密码
+uci -q batch << EOI
+set system.@system[0].hostname='SWITCH-NET'
+set system.@system[0].zonename='Asia/Shanghai'
+set system.@system[0].timezone='CST-8'
+set system.ntp.use_dhcp='0'
+set system.ntp.enabled='1'
+set system.ntp.server='ntp.aliyun.com'
+set system.@system[0].ttylogin='1'
+set system.@system[0].log_size='1024'
+set system.@system[0].log_file='/tmp/log/system.log'
+commit system
+EOI
+
+#修改lan IP和DNSMASQ配置，添加其他wifi-dhcp
+uci -q batch << EOI
+set network.lan.ipaddr='192.168.150.1'
+commit network
+set dhcp.@dnsmasq[0].cachesize='10000'
+set dhcp.@dnsmasq[0].resolvfile='/etc/resolv.dnsmasq.conf'
+set dhcp.@dnsmasq[0].filter_aaaa='1'
+set dhcp.@dnsmasq[0].localservice='0'
+set dhcp.wifi1=dhcp
+set dhcp.wifi1.interface='wifi1'
+set dhcp.wifi1.start='100'
+set dhcp.wifi1.limit='150'
+set dhcp.wifi1.leasetime='12h'
+set dhcp.wifi1.dhcp_option='6,192.168.151.1'
+set dhcp.wifi2=dhcp
+set dhcp.wifi2.interface='wifi2'
+set dhcp.wifi2.start='100'
+set dhcp.wifi2.limit='150'
+set dhcp.wifi2.leasetime='12h'
+set dhcp.wifi2.dhcp_option='6,192.168.152.1'
+set dhcp.wifi3=dhcp
+set dhcp.wifi3.interface='wifi3'
+set dhcp.wifi3.start='100'
+set dhcp.wifi3.limit='150'
+set dhcp.wifi3.leasetime='12h'
+set dhcp.wifi3.dhcp_option='6,192.168.153.1'
+set dhcp.wifi4=dhcp
+set dhcp.wifi4.interface='wifi4'
+set dhcp.wifi4.start='100'
+set dhcp.wifi4.limit='150'
+set dhcp.wifi4.leasetime='12h'
+set dhcp.wifi4.dhcp_option='6,192.168.154.1'
+#set dhcp.@dnsmasq[0].interface='lan'
+#add_list dhcp.@dnsmasq[0].listen_address='192.168.150.1,127.0.0.1'
+commit dhcp
+EOI
+
+#更改wifi默认设置（ARM）
+uci -q batch <<EOI
+set wireless.radio0.legacy_rates='1'
+set wireless.radio0.country='US'
+set wireless.radio0.channel='11'
+set wireless.default_radio0.ssid='SWITCH-NET'
+set wireless.default_radio0.encryption='psk2'
+set wireless.default_radio0.key='switchnet.com'
+set wireless.wifi1=wifi-iface
+set wireless.wifi1.device='radio0'
+set wireless.wifi1.network='wifi1'
+set wireless.wifi1.mode='ap'
+set wireless.wifi1.ssid='wifi1-America'
+set wireless.wifi1.encryption='psk2'
+set wireless.wifi1.key='switchnet.com'
+set wireless.wifi1.disabled='1'
+set wireless.wifi2=wifi-iface
+set wireless.wifi2.device='radio0'
+set wireless.wifi2.network='wifi2'
+set wireless.wifi2.mode='ap'
+set wireless.wifi2.ssid='wifi2-America'
+set wireless.wifi2.encryption='psk2'
+set wireless.wifi2.key='switchnet.com'
+set wireless.wifi2.disabled='1'
+set wireless.wifi3=wifi-iface
+set wireless.wifi3.device='radio0'
+set wireless.wifi3.network='wifi3'
+set wireless.wifi3.mode='ap'
+set wireless.wifi3.ssid='wifi3-Gemany'
+set wireless.wifi3.encryption='psk2'
+set wireless.wifi3.key='switchnet.com'
+set wireless.wifi3.disabled='1'
+set wireless.wifi4=wifi-iface
+set wireless.wifi4.device='radio0'
+set wireless.wifi4.network='wifi4'
+set wireless.wifi4.mode='ap'
+set wireless.wifi4.ssid='wifi4-British'
+set wireless.wifi4.encryption='psk2'
+set wireless.wifi4.key='switchnet.com'
+set wireless.wifi4.disabled='1'
+
+set wireless.radio1.country='US'
+set wireless.radio1.channel='149'
+set wireless.radio1.htmode='VHT40'
+set wireless.radio1.disabled='1'
+set wireless.default_radio1.ssid='SWITCH-NET-5G'
+set wireless.default_radio1.encryption='psk2'
+set wireless.default_radio1.key='switchnet.com'
+set wireless.default_radio1.disabled='1'
+commit wireless
+EOI
+wifi reload
+
+sed -i '/option disabled/d' /etc/config/wireless
+sed -i '/set wireless.${name}.disabled/d' /lib/wifi/mac80211.sh
+
+#增加vpn0和wifi接口（加入firewall-lan区域）
+uci -q batch <<EOI
+set network.vpn0=interface
+set network.vpn0.ifname='tun0'
+set network.vpn0.proto='none'
+del network.wan6
+set network.wifi1=interface
+set network.wifi1.device='phy0-ap1'
+set network.wifi1.proto='static'
+set network.wifi1.ipaddr='192.168.151.1'
+set network.wifi1.netmask='255.255.255.0'
+set network.wifi2=interface
+set network.wifi2.device='phy0-ap2'
+set network.wifi2.proto='static'
+set network.wifi2.ipaddr='192.168.152.1'
+set network.wifi2.netmask='255.255.255.0'
+set network.wifi3=interface
+set network.wifi3.device='phy0-ap3'
+set network.wifi3.proto='static'
+set network.wifi3.ipaddr='192.168.153.1'
+set network.wifi3.netmask='255.255.255.0'
+set network.wifi4=interface
+set network.wifi4.device='phy0-ap4'
+set network.wifi4.proto='static'
+set network.wifi4.ipaddr='192.168.154.1'
+set network.wifi4.netmask='255.255.255.0'
+add_list firewall.@zone[0].network='wifi1'
+add_list firewall.@zone[0].network='wifi2'
+add_list firewall.@zone[0].network='wifi3'
+add_list firewall.@zone[0].network='wifi4'
+commit network
+commit firewall
+EOI
+
+#更改ssh\web默认端口
+uci -q batch <<EOI
+set dropbear.@dropbear[0].Port='24680'
+delete dropbear.@dropbear[0].Interface
+commit dropbear
+set uhttpd.main.listen_http='0.0.0.0:24681'
+set uhttpd.main.listen_https='0.0.0.0:24682'
+commit uhttpd
+EOI
+
+#更改诊断页面默认显示的域名
+uci -q batch <<EOI
+set luci.diag.dns='119.29.29.29'
+set luci.diag.ping='119.29.29.29'
+set luci.diag.route='119.29.29.29'
+commit luci.diag
+EOI
+
+#更改统计端口位tun0
+uci -q batch <<EOI
+set luci_statistics.collectd_interface.Interfaces='tun0'
+commit luci_statistics
+EOI
+
+#给脚本文件添加权限
+chmod +x /etc/openvpn/openvpn-up.sh
+chmod +x /etc/openvpn/openvpn-down.sh
+chmod +x /root/script/update-iplist.sh
+chmod +x /root/script/update-domainlist.sh
+chmod +x /root/script/openvpn-watchdog.sh
+chmod +x /etc/init.d/redsocks2
+#touch ~/.vimrc
+ln -s /usr/share/vim/vimrc /usr/share/vim/defaults.vim  #修复vim bug
+rm -rf /etc/resolv.conf  #删除默认wan口dns地址
+echo 'nameserver 127.0.0.1' > /etc/resolv.conf #增加dns指向本机dns
+echo 'nameserver 119.29.29.29' >> /etc/resolv.conf
+
+#修改版本名称
+sed -i '/DISTRIB_ID/d' /etc/openwrt_release
+echo "DISTRIB_ID='SWITCH-NET_CPE'" >> /etc/openwrt_release
+sed -i '/DISTRIB_RELEASE/d' /etc/openwrt_release
+echo "DISTRIB_RELEASE='v2026'" >> /etc/openwrt_release
+sed -i '/DISTRIB_REVISION/d' /etc/openwrt_release
+echo "DISTRIB_REVISION='R2026'" >> /etc/openwrt_release
+sed -i '/DISTRIB_DESCRIPTION/d' /etc/openwrt_release
+echo "DISTRIB_DESCRIPTION='Powered by SWITCH-NET at 20260401'" >> /etc/openwrt_release
+#sed -i "/OPENWRT_RELEASE*/d" /usr/lib/os-release
+#echo 'OPENWRT_RELEASE="Powered by SWITCH-NET 20260401"' >> /usr/lib/os-release
+
+#增加crontab任务
+echo '0 2 * * sun echo " " > /root/script/ovpn-script.log' >> /etc/crontabs/root 
+#echo '1 2 * * sun sh /root/script/update-iplist.sh' >> /etc/crontabs/root
+#echo '2 2 * * sun sh /root/script/update-domainlist.sh' >> /etc/crontabs/root
+echo '*/5 * * * * sh /root/script/openvpn-watchdog.sh' >> /etc/crontabs/root
+echo '0 5 * * sun reboot &' >> /etc/crontabs/root   #每周日凌晨5点重启
+#echo '*/40 * * * * /etc/init.d/frpc start' >> /etc/crontabs/root ###每40分钟自动重启frp
+#echo '*/40 * * * * /etc/init.d/rtty start' >> /etc/crontabs/root
+
+#删除多余配置
+rm -rf /etc/config/openvpn_recipes #openvpn自带模版配置
+head -n 40 /etc/profile > tempfile && mv tempfile /etc/profile #删除自带多余banner
+
+exit 0
