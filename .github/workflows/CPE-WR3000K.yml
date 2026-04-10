@@ -1,4 +1,4 @@
-name: cpe-z8119ax
+name: cpe-wr3000k
 
 on:
   repository_dispatch:
